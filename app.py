@@ -5,55 +5,28 @@ import av
 from ultralytics import YOLO
 
 # --- PAGE CONFIG ---
-st.set_page_config(page_title="VisionTrac Ai", layout="wide")
+st.set_page_config(page_title="VisionTrac Ai | Helly", layout="wide")
 
-# --- CUSTOM UI & BACKGROUND ---
+# --- CUSTOM UI ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bree+Serif&display=swap');
-
-    /* Pure Black Background */
-    .stApp {
-        background-color: #000000;
-        color: white;
-    }
-    
-    /* Sidebar Styling */
-    section[data-testid="stSidebar"] {
-        background-color: #111111;
-        border-right: 1px solid #333;
-    }
-
+    .stApp { background-color: #000000; color: white; }
+    section[data-testid="stSidebar"] { background-color: #111111; border-right: 1px solid #333; }
     .main-title {
         font-family: 'Press Start 2P', cursive !important;
         font-size: 28px !important; 
         color: #00d2ff !important;
-        text-shadow: 2px 2px 5px rgba(0, 210, 255, 0.3);
-        text-align: left !important;
-        margin-left: 50px;
-        margin-top: 40px;
-        display: block;
+        margin-left: 50px; margin-top: 40px;
     }
-
-    .bottom-container {
-        text-align: left !important;
-        margin-left: 50px;
-        margin-top: 30px;
-        width: 100%;
-    }
-    
+    .bottom-container { margin-left: 50px; margin-top: 30px; }
     div.stButton > button:first-child {
-        background-color: #00d2ff;
-        color: #000;
-        font-weight: bold;
-        padding: 15px 30px;
-        border-radius: 8px;
-        border: none;
+        background-color: #00d2ff; color: #000; font-weight: bold;
+        padding: 15px 30px; border-radius: 8px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- SESSION STATE ---
 if 'entered' not in st.session_state:
     st.session_state.entered = False
 
@@ -61,7 +34,7 @@ if 'entered' not in st.session_state:
 if not st.session_state.entered:
     st.markdown('<h1 class="main-title">VisionTrac AI</h1>', unsafe_allow_html=True)
     st.markdown('<div class="bottom-container">', unsafe_allow_html=True)
-    st.markdown('<div style="font-size: 20px; color: #888; margin-bottom: 30px;">Deep Learning Vision Engine</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size: 20px; color: #888; margin-bottom: 30px;">Engineered by Helly</div>', unsafe_allow_html=True)
     if st.button("Launch Engine"):
         st.session_state.entered = True
         st.rerun()
@@ -69,44 +42,39 @@ if not st.session_state.entered:
 
 # --- DETECTION PAGE ---
 else:
-    # --- SETTINGS SIDEBAR ---
     with st.sidebar:
         st.title("⚙️ Settings")
         app_mode = st.radio("Device Mode", ["PC Mode", "Android/Mobile"])
-        
-        # Camera selection logic
         camera_choice = st.selectbox("Select Camera", ["Back Camera (Environment)", "Front Camera (User)"])
         facing_mode = "environment" if "Back" in camera_choice else "user"
-        
         st.divider()
         if st.button("← Exit Engine"):
             st.session_state.entered = False
             st.rerun()
 
-    # Load Model
     @st.cache_resource
     def load_model():
-        return YOLO('yolov8n')
+        return YOLO('yolov8n.pt') # Ensure the .pt extension is included
 
     model = load_model()
 
     st.markdown('<p style="font-family: \'Bree Serif\', serif; font-size: 42px; color: #00d2ff;">VisionTrac Ai: Real-Time</p>', unsafe_allow_html=True)
-    st.info(f"Currently optimized for: {app_mode}")
 
     def video_frame_callback(frame):
         img = frame.to_ndarray(format="bgr24")
-        results = model.predict(img, conf=0.4, imgsz=320, stream=True)
-        annotated_frame = img
-        for r in results:
-            annotated_frame = r.plot()
-            break 
+        # Run inference without 'stream=True' for single-frame callback stability
+        results = model.predict(img, conf=0.4, imgsz=320, verbose=False)
+        
+        # Plot results onto the frame if detected
+        annotated_frame = results[0].plot() if results else img
+        
         return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
 
+    # Use Google's public STUN server for connection establishment
     RTC_CONFIGURATION = RTCConfiguration(
         {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
     )
 
-    # Key includes facing_mode so it resets the component when you switch cameras
     webrtc_streamer(
         key=f"vision-engine-{facing_mode}",
         mode=WebRtcMode.SENDRECV,
